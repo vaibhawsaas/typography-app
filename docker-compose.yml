@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ./python_backend
+      dockerfile: Dockerfile
+    container_name: typemotion_backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      # Persist generated videos and the JSON database across restarts
+      - backend_outputs:/app/outputs
+      - backend_db:/app/db.json
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: typemotion_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Point the Next.js app at the backend (used at runtime by Server Actions / Route Handlers)
+      - NEXT_PUBLIC_API_URL=http://backend:5000
+    depends_on:
+      - backend
+
+volumes:
+  backend_outputs:
+  backend_db:
