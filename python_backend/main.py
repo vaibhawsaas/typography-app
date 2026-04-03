@@ -113,10 +113,14 @@ class SignupRequest(BaseModel):
     phone_number: str
 
 VALID_ANIMATIONS  = ['karaoke', 'typewriter', 'bounce', 'zoom_in', 'slide_up',
-                      'shake', 'glow', 'wave', 'fade_in', 'scale_pulse']
-VALID_BACKGROUNDS = ['gradient', 'radial', 'particles', 'solid']
+                      'shake', 'glow', 'wave', 'fade_in', 'scale_pulse',
+                      'pop_up', 'flip_in', 'glitch', 'spotlight', 'color_pop',
+                      'word_by_word_rise']
+VALID_BACKGROUNDS = ['gradient', 'radial', 'particles', 'solid', 'aurora',
+                      'geometric', 'bokeh', 'cinematic_bars', 'glitch_lines']
 VALID_TRANSITIONS = ['crossfade', 'fade', 'slide_right', 'slide_left', 'none']
-VALID_STYLES      = ['neon', 'cinematic', 'minimal']
+VALID_STYLES      = ['neon', 'cinematic', 'minimal', 'retro', 'pop', 'dark_luxury', 'vibrant']
+VALID_FONT_STYLES = ['bold', 'italic', 'impact', 'script', 'condensed', 'rounded', 'outline']
 
 class GenerateRequest(BaseModel):
     script: str
@@ -129,6 +133,7 @@ class GenerateRequest(BaseModel):
     animation: Optional[str] = "karaoke"
     fps: Optional[int] = 24
     fontsize: Optional[int] = 80
+    fontStyle: Optional[str] = "bold"
     userId: Optional[str] = None
 
 class RenderRequest(BaseModel):
@@ -349,7 +354,8 @@ async def generate_video(req: GenerateRequest):
         background=req.background,
         effects=req.effects,
         transitions=req.transitions,
-        animation=req.animation
+        animation=req.animation,
+        font_style=req.fontStyle,
     )
 
     video_id = str(uuid.uuid4())
@@ -365,6 +371,7 @@ async def generate_video(req: GenerateRequest):
         "userId": req.userId,
         "fps": req.fps or 24,
         "fontsize": req.fontsize or 80,
+        "fontStyle": req.fontStyle or "bold",
         "animation": req.animation,
         "createdAt": datetime.utcnow().isoformat() + "Z"
     }
@@ -381,7 +388,7 @@ async def generate_video(req: GenerateRequest):
 
 def background_render_task(
     video_id: str, scenes: list, style: str, video_size: str,
-    fps: int = 24, fontsize: int = 80
+    fps: int = 24, fontsize: int = 80, font_style: str = "bold"
 ):
     def update_progress(progress_val: int):
         nonlocal last_progress
@@ -401,6 +408,7 @@ def background_render_task(
             progress_callback=update_progress,
             fps=fps,
             font_size=fontsize,
+            font_style=font_style,
         )
 
         db = read_db()
@@ -443,7 +451,7 @@ async def render_video(req: RenderRequest, bg_tasks: BackgroundTasks):
     bg_tasks.add_task(
         background_render_task,
         video["_id"], video["scenes"], video["style"], video["videoSize"],
-        video.get("fps", 24), video.get("fontsize", 80),
+        video.get("fps", 24), video.get("fontsize", 80), video.get("fontStyle", "bold"),
     )
 
     return {"message": "Render started", "videoId": req.videoId}

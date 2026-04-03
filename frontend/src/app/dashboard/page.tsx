@@ -56,29 +56,44 @@ const SCRIPT_PRESETS = [
 ];
 
 const BACKGROUNDS = [
-  { value: "gradient", label: "Gradient", preview: "bg-gradient-to-br from-purple-900 via-blue-900 to-black" },
-  { value: "radial",   label: "Radial",   preview: "bg-[radial-gradient(ellipse_at_center,_#1a0533_0%,_#000_70%)]" },
-  { value: "particles",label: "Particles",preview: "bg-gradient-to-b from-gray-900 to-black" },
-  { value: "solid",    label: "Solid",    preview: "bg-gray-950" },
+  { value: "gradient",       label: "Gradient",       preview: "bg-gradient-to-br from-purple-900 via-blue-900 to-black" },
+  { value: "radial",         label: "Radial",         preview: "bg-[radial-gradient(ellipse_at_center,_#1a0533_0%,_#000_70%)]" },
+  { value: "particles",      label: "Particles",      preview: "bg-gradient-to-b from-gray-900 to-black" },
+  { value: "solid",          label: "Solid",          preview: "bg-gray-950" },
+  { value: "aurora",         label: "Aurora",         preview: "bg-gradient-to-b from-teal-900 via-blue-900 to-indigo-950" },
+  { value: "geometric",      label: "Geometric",      preview: "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950" },
+  { value: "bokeh",          label: "Bokeh",          preview: "bg-gradient-to-br from-purple-950 via-blue-950 to-black" },
+  { value: "cinematic_bars", label: "Cinematic",      preview: "bg-gradient-to-b from-zinc-900 to-black" },
+  { value: "glitch_lines",   label: "Glitch",         preview: "bg-gradient-to-br from-green-950 to-black" },
 ];
 
 const STYLES = [
-  { value: "minimal",    label: "Minimal Dark",  icon: "⬛" },
-  { value: "neon",       label: "Neon Glow",     icon: "🟣" },
-  { value: "cinematic",  label: "Cinematic",     icon: "🎬" },
+  { value: "minimal",     label: "Minimal Dark",  icon: "⬛" },
+  { value: "neon",        label: "Neon Glow",     icon: "🟣" },
+  { value: "cinematic",   label: "Cinematic",     icon: "🎬" },
+  { value: "retro",       label: "Retro Warm",    icon: "🔥" },
+  { value: "pop",         label: "Pop Bright",    icon: "🎨" },
+  { value: "dark_luxury", label: "Dark Luxury",   icon: "✨" },
+  { value: "vibrant",     label: "Vibrant",       icon: "🌈" },
 ];
 
 const ANIMATIONS = [
-  { value: "karaoke",    label: "Karaoke",      desc: "Word-by-word highlight" },
-  { value: "typewriter", label: "Typewriter",   desc: "Letter-by-letter typing" },
-  { value: "bounce",     label: "Bounce",       desc: "Elastic text bounce" },
-  { value: "zoom_in",   label: "Zoom In",      desc: "Cinematic zoom" },
-  { value: "slide_up",  label: "Slide Up",     desc: "Bottom entry motion" },
-  { value: "shake",      label: "Shake",        desc: "Vibration energy" },
-  { value: "glow",       label: "Glow",        desc: "Neon glow pulse" },
-  { value: "wave",       label: "Wave",         desc: "Sine-wave ripple" },
-  { value: "fade_in",   label: "Fade In",      desc: "Smooth opacity fade" },
-  { value: "scale_pulse",label: "Scale Pulse",  desc: "Breathing scale" },
+  { value: "karaoke",          label: "Karaoke",         desc: "Word-by-word highlight" },
+  { value: "typewriter",       label: "Typewriter",      desc: "Letter-by-letter reveal" },
+  { value: "bounce",           label: "Bounce",          desc: "Elastic text bounce" },
+  { value: "zoom_in",          label: "Zoom In",         desc: "Cinematic zoom" },
+  { value: "slide_up",         label: "Slide Up",        desc: "Bottom entry motion" },
+  { value: "shake",            label: "Shake",           desc: "Vibration energy" },
+  { value: "glow",             label: "Glow",            desc: "Neon glow pulse" },
+  { value: "wave",             label: "Wave",            desc: "Sine-wave ripple" },
+  { value: "fade_in",          label: "Fade In",         desc: "Smooth opacity" },
+  { value: "scale_pulse",      label: "Pulse",           desc: "Breathing scale" },
+  { value: "pop_up",           label: "Pop Up",          desc: "CapCut overshoot pop" },
+  { value: "flip_in",          label: "Flip In",         desc: "Vertical flip entrance" },
+  { value: "glitch",           label: "Glitch",          desc: "Chromatic aberration" },
+  { value: "spotlight",        label: "Spotlight",       desc: "Dark stage spotlight" },
+  { value: "color_pop",        label: "Color Pop",       desc: "Grey→color on active" },
+  { value: "word_by_word_rise",label: "Rise",            desc: "Words rise in sequence" },
 ];
 
 const TRANSITIONS = [
@@ -87,6 +102,16 @@ const TRANSITIONS = [
   { value: "slide_right", label: "Slide Right", desc: "Wipe rightward" },
   { value: "slide_left",  label: "Slide Left",  desc: "Wipe leftward" },
   { value: "none",        label: "None",        desc: "No transition" },
+];
+
+const FONT_STYLES = [
+  { value: "bold",      label: "Bold",      preview: "font-bold",    sample: "Aa" },
+  { value: "italic",    label: "Italic",    preview: "italic",       sample: "Aa" },
+  { value: "impact",    label: "Impact",    preview: "font-black tracking-tight", sample: "Aa" },
+  { value: "script",    label: "Script",    preview: "italic font-light",         sample: "Aa" },
+  { value: "condensed", label: "Condensed", preview: "font-bold tracking-tighter",sample: "Aa" },
+  { value: "rounded",   label: "Rounded",   preview: "font-medium",  sample: "Aa" },
+  { value: "outline",   label: "Outline",   preview: "font-bold",    sample: "Aa" },
 ];
 
 type TabId = "generate" | "history" | "settings";
@@ -109,6 +134,7 @@ export default function DashboardPage() {
   const [background, setBackground] = useState("gradient");
   const [fps, setFps] = useState("24");
   const [fontsize, setFontsize] = useState(80);
+  const [fontStyle, setFontStyle] = useState("bold");
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // ── Generation state ──
@@ -216,6 +242,7 @@ export default function DashboardPage() {
         transitions, animation, background,
         fps: parseInt(fps),
         fontsize,
+        fontStyle,
         userId,
       });
       const newVideoId = genRes.data.videoId;
@@ -459,7 +486,7 @@ export default function DashboardPage() {
                     {/* Style */}
                     <div className="space-y-1.5">
                       <Label className="text-gray-400 text-xs">Visual Theme</Label>
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1 max-h-48 overflow-y-auto scrollbar-thin pr-0.5">
                         {STYLES.map(s => (
                           <button
                             key={s.value}
@@ -527,7 +554,7 @@ export default function DashboardPage() {
                     <Label className="text-gray-400 text-xs flex items-center gap-1.5">
                       <Zap className="w-3 h-3 text-yellow-400" /> Text Animation
                     </Label>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {ANIMATIONS.map(a => (
                         <button
                           key={a.value}
@@ -562,7 +589,7 @@ export default function DashboardPage() {
                       {/* Background */}
                       <div className="space-y-2">
                         <Label className="text-gray-400 text-xs">Background Style</Label>
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           {BACKGROUNDS.map(bg => (
                             <button
                               key={bg.value}
@@ -574,8 +601,30 @@ export default function DashboardPage() {
                                   : "border-white/10 hover:border-white/20"
                               }`}
                             >
-                              <div className={`w-full h-10 rounded-md ${bg.preview}`} />
-                              <span className="text-[10px] text-gray-400">{bg.label}</span>
+                              <div className={`w-full h-8 rounded-md ${bg.preview}`} />
+                              <span className="text-[9px] text-gray-400">{bg.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Font Style Picker */}
+                      <div className="space-y-2">
+                        <Label className="text-gray-400 text-xs">Font Style</Label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {FONT_STYLES.map(fs => (
+                            <button
+                              key={fs.value}
+                              disabled={loading}
+                              onClick={() => setFontStyle(fs.value)}
+                              className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${
+                                fontStyle === fs.value
+                                  ? "border-purple-500 bg-purple-500/10 text-white"
+                                  : "border-white/10 bg-white/5 text-gray-500 hover:border-white/20"
+                              }`}
+                            >
+                              <span className={`text-sm ${fs.preview}`}>{fs.sample}</span>
+                              <span className="text-[9px]">{fs.label}</span>
                             </button>
                           ))}
                         </div>

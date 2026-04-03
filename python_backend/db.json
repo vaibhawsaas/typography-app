@@ -896,8 +896,8 @@
     "password": "12345678",
     "phone_number": "3535635242",
     "createdAt": "2026-03-13T09:37:12.648147Z",
-    "plan": "Creator",
-    "plan_start_date": "2026-03-13T13:14:33.268287Z"
+    "plan": "Starter",
+    "plan_start_date": "2026-04-03T19:15:57.827544Z"
   },
   {
     "type": "payment",
@@ -910,27 +910,6 @@
     "amount": 15.0,
     "status": "pending",
     "createdAt": "2026-03-13T09:39:41.918163Z"
-  },
-  {
-    "_id": "a3c9925d-0f32-4e91-8ccc-f0fd0ed72cd8",
-    "script": "test script",
-    "style": "minimal",
-    "videoSize": "9:16",
-    "status": "pending",
-    "progress": 0,
-    "scenes": [
-      {
-        "text": "test script",
-        "durationInSeconds": 2.5,
-        "animationType": "scale",
-        "transition": "fade",
-        "backgroundColor": "#1e293b",
-        "textColor": "#ffffff"
-      }
-    ],
-    "videoUrl": "",
-    "userId": "admin",
-    "createdAt": "2026-03-13T10:20:50.392682Z"
   },
   {
     "_id": "b7eaddc9-b3f4-4d17-9ddb-0749d1a3302e",
@@ -985,5 +964,106 @@
     "videoUrl": "",
     "userId": "9e8a7954-adc3-4dc4-84a8-41a378cef471",
     "createdAt": "2026-03-13T13:15:00.353180Z"
+  },
+  {
+    "type": "payment",
+    "_id": "59975079-15c3-41d5-af51-dc99e79860e2",
+    "user_id": "9e8a7954-adc3-4dc4-84a8-41a378cef471",
+    "payer_name": "kjkj",
+    "email": "vaibhawteac12@gmail.com",
+    "phone_number": "3535635242",
+    "plan_name": "Starter",
+    "amount": 15.0,
+    "status": "pending",
+    "createdAt": "2026-04-03T19:15:57.827492Z"
+  },
+  {
+    "_id": "b2541355-16ef-4a3a-83a5-60e4ca23c1ac",
+    "script": "Wake up. Show up. Level up. Every day is a new chance to be better than yesterday. No excuses. Just results.",
+    "style": "minimal",
+    "videoSize": "9:16",
+    "status": "completed",
+    "progress": 100,
+    "scenes": [
+      {
+        "text": "Wake up. Show up.",
+        "durationInSeconds": 2.5,
+        "animationType": "karaoke",
+        "transition": "crossfade",
+        "background": "gradient",
+        "backgroundColor": "#1e293b",
+        "backgroundColor2": "#0f172a",
+        "textColor": "#e2e8f0",
+        "highlightColor": "#38bdf8",
+        "fontStyle": "bold"
+      },
+      {
+        "text": "Level up. Every day",
+        "durationInSeconds": 2.5,
+        "animationType": "karaoke",
+        "transition": "crossfade",
+        "background": "gradient",
+        "backgroundColor": "#0f172a",
+        "backgroundColor2": "#070f1a",
+        "textColor": "#ffffff",
+        "highlightColor": "#38bdf8",
+        "fontStyle": "bold"
+      },
+      {
+        "text": "is a new chance",
+        "durationInSeconds": 2.5,
+        "animationType": "karaoke",
+        "transition": "crossfade",
+        "background": "gradient",
+        "backgroundColor": "#1e293b",
+        "backgroundColor2": "#0f172a",
+        "textColor": "#ffffff",
+        "highlightColor": "#38bdf8",
+        "fontStyle": "bold"
+      },
+      {
+        "text": "to be better than",
+        "durationInSeconds": 2.5,
+        "animationType": "karaoke",
+        "transition": "crossfade",
+        "background": "gradient",
+        "backgroundColor": "#0f172a",
+        "backgroundColor2": "#070f1a",
+        "textColor": "#e2e8f0",
+        "highlightColor": "#38bdf8",
+        "fontStyle": "bold"
+      },
+      {
+        "text": "yesterday. No excuses. Just",
+        "durationInSeconds": 2.5,
+        "animationType": "karaoke",
+        "transition": "crossfade",
+        "background": "gradient",
+        "backgroundColor": "#1e293b",
+        "backgroundColor2": "#0f172a",
+        "textColor": "#ffffff",
+        "highlightColor": "#38bdf8",
+        "fontStyle": "bold"
+      },
+      {
+        "text": "results.",
+        "durationInSeconds": 2.5,
+        "animationType": "karaoke",
+        "transition": "crossfade",
+        "background": "gradient",
+        "backgroundColor": "#1e293b",
+        "backgroundColor2": "#0f172a",
+        "textColor": "#e2e8f0",
+        "highlightColor": "#38bdf8",
+        "fontStyle": "bold"
+      }
+    ],
+    "videoUrl": "/api/video/download/b2541355-16ef-4a3a-83a5-60e4ca23c1ac",
+    "userId": "admin",
+    "fps": 24,
+    "fontsize": 80,
+    "fontStyle": "bold",
+    "animation": "karaoke",
+    "createdAt": "2026-04-03T19:25:21.663074Z"
   }
 ]
