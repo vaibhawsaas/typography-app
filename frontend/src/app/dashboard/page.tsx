@@ -3,13 +3,36 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
+
+interface VideoRecord {
+  _id: string;
+  script: string;
+  style: string;
+  videoSize: string;
+  status: string;
+  progress?: number;
+  videoUrl?: string;
+  animation?: string;
+  fontStyle?: string;
+  createdAt?: string;
+}
+
+interface UserRecord {
+  id?: string;
+  _id?: string;
+  email?: string;
+  name?: string;
+  role?: string;
+  plan?: string;
+  phone_number?: string;
+}
 import {
-  LogOut, Type, Loader2, PlayCircle, Download, FileImage,
+  LogOut, Type, Loader2, Download, FileImage,
   Trash2, CheckSquare, Square, Shield, CreditCard, Wand2,
   Clock, Film, Sparkles, Search, X, ChevronDown, ChevronUp,
   Copy, Check, Zap, Settings, History, PenLine, BarChart3,
-  SlidersHorizontal, RefreshCw, Star, Video, Eye
+  SlidersHorizontal, RefreshCw, Star, Video
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -142,18 +165,18 @@ export default function DashboardPage() {
   const [status, setStatus] = useState<Status>("idle");
   const [progress, setProgress] = useState(0);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
+  const [currentVideoId, setCurrentVideoId] = useState<string | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
   const pollInterval = useRef<NodeJS.Timeout | null>(null);
 
   // ── History ──
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<VideoRecord[]>([]);
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const [historySearch, setHistorySearch] = useState("");
   const [historyFilter, setHistoryFilter] = useState<"all" | "completed" | "failed" | "processing">("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // ── User & plan ──
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserRecord | null>(null);
   const [userPlan, setUserPlan] = useState<string | null>(null);
   const [videosGenerated, setVideosGenerated] = useState(0);
   const [quotaBlocked, setQuotaBlocked] = useState(false);
@@ -174,6 +197,7 @@ export default function DashboardPage() {
     } catch { router.push("/login"); }
     fetchHistory();
     return () => { if (pollInterval.current) clearInterval(pollInterval.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── API helpers ───────────────────────────────────────────────────────────────
@@ -250,8 +274,8 @@ export default function DashboardPage() {
       setStatus("rendering");
       await axios.post(`${API}/api/video/render-video`, { videoId: newVideoId });
       pollVideoStatus(newVideoId);
-    } catch (error: any) {
-      if (axios.isAxiosError(error) && error.response?.status === 403) {
+    } catch (error: unknown) {
+      if (error instanceof AxiosError && error.response?.status === 403) {
         setQuotaBlocked(true);
         setLoading(false);
         setStatus("idle");
@@ -406,7 +430,7 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3 p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400 text-sm mb-4">
               <CreditCard className="w-4 h-4 flex-shrink-0" />
               <span>
-                You've used all <strong>{PLAN_QUOTA[userPlan] === Infinity ? "∞" : PLAN_QUOTA[userPlan]}</strong> video(s) on your <strong>{userPlan}</strong> plan.{" "}
+                You&apos;ve used all <strong>{PLAN_QUOTA[userPlan] === Infinity ? "∞" : PLAN_QUOTA[userPlan]}</strong> video(s) on your <strong>{userPlan}</strong> plan.{" "}
                 <button onClick={() => router.push("/payment")} className="underline hover:text-amber-300 font-medium">
                   Upgrade now →
                 </button>
@@ -766,7 +790,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between text-[10px] text-gray-600">
                           <span className="text-purple-400 font-medium">Script → Scenes</span>
                           <span className={status === "rendering" ? "text-blue-400 font-medium" : ""}>Frames → MP4</span>
-                          <span className={status === "completed" ? "text-green-400 font-medium" : ""}>Done</span>
+                          <span className={(status as string) === "completed" ? "text-green-400 font-medium" : ""}>Done</span>
                         </div>
                       </div>
 

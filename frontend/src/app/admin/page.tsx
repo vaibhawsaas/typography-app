@@ -1,33 +1,65 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import axios from "axios";
 import { 
     Users, 
     Video, 
     CreditCard, 
-    TrendingUp, 
     CheckCircle2, 
     Loader2,
-    Type,
-    LogOut
+    Type
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
-export default function AdminDashboard() {
-    const router = useRouter();
-    const [loading, setLoading] = useState(true);
-    const [data, setData] = useState<{
-        stats: any;
-        users: any[];
-        payments_history: any[];
-    } | null>(null);
+interface AdminStats {
+  total_users: number;
+  total_videos_created: number;
+  total_videos_completed: number;
+  total_revenue_usd: number;
+}
 
-    useEffect(() => {
+interface AdminUser {
+  id: string;
+  name: string;
+  email: string;
+  plan: string;
+  videos_generated: number;
+  joined_date: string;
+  latest_payment?: {
+    amount: number;
+    date?: string;
+    createdAt?: string;
+  };
+}
+
+interface AdminPayment {
+  _id?: string;
+  id?: string;
+  type?: string;
+  payer_name?: string;
+  phone_number?: string;
+  user_id?: string;
+  amount?: number;
+  currency?: string;
+  plan_name?: string;
+  status?: string;
+  createdAt?: string;
+  date?: string;
+}
+
+export default function AdminDashboard() {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<{
+    stats: AdminStats;
+    users: AdminUser[];
+    payments_history: AdminPayment[];
+  } | null>(null);
+
+  useEffect(() => {
         const fetchAdminData = async () => {
             try {
                 const res = await axios.get("http://localhost:5000/api/admin/dashboard");
@@ -181,7 +213,7 @@ export default function AdminDashboard() {
                                                         ${user.latest_payment.amount.toFixed(2)}
                                                     </span>
                                                     <span className="text-xs text-gray-500">
-                                                        {new Date(user.latest_payment.date).toLocaleDateString()}
+                                                        {new Date(user.latest_payment.date ?? user.latest_payment.createdAt ?? "").toLocaleDateString()}
                                                     </span>
                                                 </div>
                                             ) : (
@@ -243,7 +275,7 @@ export default function AdminDashboard() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right text-gray-400">
-                                            {new Date(payment.createdAt || payment.date).toLocaleString()}
+                                            {new Date(payment.createdAt ?? payment.date ?? "").toLocaleString()}
                                         </TableCell>
                                     </TableRow>
                                 ))}

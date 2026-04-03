@@ -9,7 +9,7 @@ import { Type, CreditCard, Check, Loader2, Clock, Send, ChevronRight } from "luc
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 import { Card, CardContent } from "@/components/ui/card";
 
 const PLANS = [
@@ -39,9 +39,18 @@ const PLANS = [
   },
 ];
 
+interface UserRecord {
+  id?: string;
+  _id?: string;
+  email?: string;
+  name?: string;
+  role?: string;
+  phone_number?: string;
+}
+
 export default function PaymentPage() {
   const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<UserRecord | null>(null);
 
   // Form state
   const [payerName, setPayerName] = useState("");
@@ -78,6 +87,7 @@ export default function PaymentPage() {
     } catch {
       router.push("/login");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const startCountdown = () => {
@@ -110,9 +120,9 @@ export default function PaymentPage() {
     setSubmitLoading(true);
     try {
       await axios.post("http://localhost:5000/api/payments", {
-        user_id: user.id || user._id,
+        user_id: user?.id || user?._id,
         payer_name: payerName,
-        email: user.email,
+        email: user?.email,
         phone_number: phone,
         plan_name: selectedPlan,
         amount: chosenPlan?.price ?? 0,
@@ -121,7 +131,7 @@ export default function PaymentPage() {
       const updatedUser = { ...user, plan: selectedPlan };
       Cookies.set("user", JSON.stringify(updatedUser), { expires: 7 });
       router.push("/dashboard");
-    } catch (err) {
+    } catch {
       setError("Failed to submit payment. Please try again.");
       setSubmitLoading(false);
     }
