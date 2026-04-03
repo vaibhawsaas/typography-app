@@ -23,13 +23,13 @@ import gsap from "gsap";
 interface Star { x: number; y: number; r: number; opacity: number; vx: number; vy: number; }
 
 // Jupiter atmospheric bands painted in neon purple / fuchsia / blue
-const NEON_BANDS = [
-  "#10002b", "#240046", "#3c096c", "#5a189a", "#7b2cbf", // deep purple tones
-  "#9d4edd", "#c77dff", "#e0aaff", "#ffffff", "#e0aaff", // fading to bright white bands
-  "#9d4edd", "#5a189a", "#3c096c", "#7b2cbf", "#c77dff",
-  "#240046", "#10002b", "#3c096c", "#5a189a", "#9d4edd",
-  "#ffffff", "#f72585", "#b5179e", "#7209b7", "#3a0ca3"  // vivid magenta & blue hints
-];
+// const NEON_BANDS = [
+//   "#10002b", "#240046", "#3c096c", "#5a189a", "#7b2cbf", // deep purple tones
+//   "#9d4edd", "#c77dff", "#e0aaff", "#ffffff", "#e0aaff", // fading to bright white bands
+//   "#9d4edd", "#5a189a", "#3c096c", "#7b2cbf", "#c77dff",
+//   "#240046", "#10002b", "#3c096c", "#5a189a", "#9d4edd",
+//   "#ffffff", "#f72585", "#b5179e", "#7209b7", "#3a0ca3"  // vivid magenta & blue hints
+// ];
 
 function PurpleJupiterPlanet() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -95,6 +95,7 @@ function PurpleJupiterPlanet() {
       shimmer: number,
       side: "back" | "front"
     ) {
+      if (!ctx) return;
       const startA = side === "back" ? Math.PI : 0;
       const endA = side === "back" ? 0 : Math.PI;
 
@@ -124,7 +125,7 @@ function PurpleJupiterPlanet() {
         lg.addColorStop(1.00, `rgba(${r},${g},${b},0)`);
 
         const iRx = ringRx * l.iF;
-        const iRy = ringRy * l.iF;
+        // const iRy = ringRy * l.iF; // Removed unused variable
         const thickness = Math.max(3, Math.abs(rx - iRx) * 1.6 + ry * 0.3);
 
         ctx.save();
@@ -154,6 +155,7 @@ function PurpleJupiterPlanet() {
     }
 
     function drawJupiterBody(cx: number, cy: number, R: number, bandOffset: number, glow: number) {
+      if (!ctx) return;
       // ── Clip to planet circle ────────────────────────────
       ctx.save();
       ctx.beginPath();
