@@ -1,221 +1,191 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import axios from "axios";
 import {
   LogOut, Type, Loader2, PlayCircle, Download, FileImage,
-  Trash2, CheckSquare, Square, Shield, CreditCard
+  Trash2, CheckSquare, Square, Shield, CreditCard, Wand2,
+  Clock, Film, Sparkles, Search, X, ChevronDown, ChevronUp,
+  Copy, Check, Zap, Settings, History, PenLine, BarChart3,
+  SlidersHorizontal, RefreshCw, Star, Video, Eye
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 
-// Plan video quotas
+// ─── Constants ────────────────────────────────────────────────────────────────
 const PLAN_QUOTA: Record<string, number> = {
   Starter: 1,
   Creator: 30,
   Agency: Infinity,
 };
 
+const API = "http://localhost:5000";
+
+const SCRIPT_PRESETS = [
+  {
+    label: "🚀 Tech Product Launch",
+    value:
+      "Introducing the future of productivity. One app. Infinite possibilities. Smarter workflows. Faster decisions. Your team — supercharged.",
+  },
+  {
+    label: "🎵 Music Drop Hype",
+    value:
+      "New era. New sound. New chapter. The beat drops tonight. Are you ready? This is the moment you've been waiting for.",
+  },
+  {
+    label: "💪 Motivational Reel",
+    value:
+      "Wake up. Show up. Level up. Every day is a new chance to be better than yesterday. No excuses. Just results.",
+  },
+  {
+    label: "🛍️ Product Showcase",
+    value:
+      "Crafted with precision. Designed for life. Premium quality meets everyday simplicity. Experience the difference — from day one.",
+  },
+  {
+    label: "🌍 Brand Story",
+    value:
+      "We started with a simple question: why settle? Three years and a million stories later — we're just getting started.",
+  },
+];
+
+const BACKGROUNDS = [
+  { value: "gradient", label: "Gradient", preview: "bg-gradient-to-br from-purple-900 via-blue-900 to-black" },
+  { value: "radial",   label: "Radial",   preview: "bg-[radial-gradient(ellipse_at_center,_#1a0533_0%,_#000_70%)]" },
+  { value: "particles",label: "Particles",preview: "bg-gradient-to-b from-gray-900 to-black" },
+  { value: "solid",    label: "Solid",    preview: "bg-gray-950" },
+];
+
+const STYLES = [
+  { value: "minimal",    label: "Minimal Dark",  icon: "⬛" },
+  { value: "neon",       label: "Neon Glow",     icon: "🟣" },
+  { value: "cinematic",  label: "Cinematic",     icon: "🎬" },
+];
+
+const ANIMATIONS = [
+  { value: "karaoke",    label: "Karaoke",      desc: "Word-by-word highlight" },
+  { value: "typewriter", label: "Typewriter",   desc: "Letter-by-letter typing" },
+  { value: "bounce",     label: "Bounce",       desc: "Elastic text bounce" },
+  { value: "zoom_in",   label: "Zoom In",      desc: "Cinematic zoom" },
+  { value: "slide_up",  label: "Slide Up",     desc: "Bottom entry motion" },
+  { value: "shake",      label: "Shake",        desc: "Vibration energy" },
+  { value: "glow",       label: "Glow",        desc: "Neon glow pulse" },
+  { value: "wave",       label: "Wave",         desc: "Sine-wave ripple" },
+  { value: "fade_in",   label: "Fade In",      desc: "Smooth opacity fade" },
+  { value: "scale_pulse",label: "Scale Pulse",  desc: "Breathing scale" },
+];
+
+const TRANSITIONS = [
+  { value: "crossfade",   label: "Crossfade",   desc: "Smooth dissolve" },
+  { value: "fade",        label: "Hard Cut",    desc: "Instant cut" },
+  { value: "slide_right", label: "Slide Right", desc: "Wipe rightward" },
+  { value: "slide_left",  label: "Slide Left",  desc: "Wipe leftward" },
+  { value: "none",        label: "None",        desc: "No transition" },
+];
+
+type TabId = "generate" | "history" | "settings";
+type Status = "idle" | "generating" | "rendering" | "completed" | "error";
+
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const router = useRouter();
+
+  // ── Tab ──
+  const [activeTab, setActiveTab] = useState<TabId>("generate");
+
+  // ── Form state ──
   const [script, setScript] = useState("");
   const [style, setStyle] = useState("minimal");
   const [videoSize, setVideoSize] = useState("9:16");
-  const [duration, setDuration] = useState("");
-  const [transitions, setTransitions] = useState("fade");
-  const [animation, setAnimation] = useState("scale");
+  const [duration, setDuration] = useState("none");
+  const [transitions, setTransitions] = useState("crossfade");
+  const [animation, setAnimation] = useState("karaoke");
+  const [background, setBackground] = useState("gradient");
+  const [fps, setFps] = useState("24");
+  const [fontsize, setFontsize] = useState(80);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // ── Generation state ──
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<"idle" | "generating" | "rendering" | "completed" | "error">("idle");
-  const [progress, setProgress] = useState<number>(0);
+  const [status, setStatus] = useState<Status>("idle");
+  const [progress, setProgress] = useState(0);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [currentVideoId, setCurrentVideoId] = useState<string | null>(null);
   const pollInterval = useRef<NodeJS.Timeout | null>(null);
 
-  // Video History
+  // ── History ──
   const [history, setHistory] = useState<any[]>([]);
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
+  const [historySearch, setHistorySearch] = useState("");
+  const [historyFilter, setHistoryFilter] = useState<"all" | "completed" | "failed" | "processing">("all");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // User & plan state
+  // ── User & plan ──
   const [user, setUser] = useState<any>(null);
   const [userPlan, setUserPlan] = useState<string | null>(null);
   const [videosGenerated, setVideosGenerated] = useState(0);
   const [quotaBlocked, setQuotaBlocked] = useState(false);
-  const [quotaMsg, setQuotaMsg] = useState("");
 
+  // ── Effects ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     const userCookie = Cookies.get("user");
-    if (!userCookie) {
-      router.push("/login");
-      return;
-    }
+    if (!userCookie) { router.push("/login"); return; }
     try {
       const parsed = JSON.parse(userCookie);
       setUser(parsed);
       if (parsed.role !== "admin") {
         const plan = parsed.plan || null;
         setUserPlan(plan);
-        if (plan) {
-          fetchUserPlan(parsed.id || parsed._id, plan);
-        } else {
-          // No plan yet → send to payment
-          router.push("/payment");
-          return;
-        }
+        if (plan) fetchUserPlan(parsed.id || parsed._id, plan);
+        else { router.push("/payment"); return; }
       }
-    } catch {
-      router.push("/login");
-    }
+    } catch { router.push("/login"); }
     fetchHistory();
-    return () => {
-      if (pollInterval.current) clearInterval(pollInterval.current);
-    };
+    return () => { if (pollInterval.current) clearInterval(pollInterval.current); };
   }, []);
 
+  // ── API helpers ───────────────────────────────────────────────────────────────
   const fetchUserPlan = async (userId: string, plan: string) => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/user/${userId}/plan`);
+      const res = await axios.get(`${API}/api/user/${userId}/plan`);
       const { videos_generated, quota } = res.data;
       setVideosGenerated(videos_generated);
       const planQuota = PLAN_QUOTA[plan] ?? quota;
-      if (videos_generated >= planQuota) {
-        setQuotaBlocked(true);
-      }
-    } catch {
-      // fallback: use local count
-    }
+      if (videos_generated >= planQuota) setQuotaBlocked(true);
+    } catch {}
   };
 
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     try {
       const userCookie = Cookies.get("user");
       const parsed = userCookie ? JSON.parse(userCookie) : null;
       const userId = parsed?.id || parsed?._id;
-      const url = userId
-        ? `http://localhost:5000/api/video?userId=${userId}`
-        : "http://localhost:5000/api/video";
+      const url = userId ? `${API}/api/video?userId=${userId}` : `${API}/api/video`;
       const res = await axios.get(url);
       setHistory(res.data);
-    } catch (err) {
-      console.error("Failed to fetch history:", err);
-    }
-  };
-
-  const toggleSelect = (id: string) => {
-    setSelectedVideos(prev => prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]);
-  };
-
-  const selectAll = () => {
-    if (selectedVideos.length === history.length) setSelectedVideos([]);
-    else setSelectedVideos(history.map(v => v._id));
-  };
-
-  const deleteSelected = async () => {
-    if (selectedVideos.length === 0) return;
-    try {
-      await axios.post("http://localhost:5000/api/video/delete", { videoIds: selectedVideos });
-      setSelectedVideos([]);
-      fetchHistory();
     } catch (err) { console.error(err); }
-  };
-
-  const deleteAll = async () => {
-    if (history.length === 0) return;
-    try {
-      await axios.post("http://localhost:5000/api/video/delete", { videoIds: history.map(v => v._id) });
-      setSelectedVideos([]);
-      fetchHistory();
-    } catch (err) { console.error(err); }
-  };
-
-  const handleLogout = () => {
-    Cookies.remove("token");
-    Cookies.remove("user");
-    router.push("/login");
-  };
-
-  const handleGenerate = async () => {
-    // Non-admin: check quota
-    if (user?.role !== "admin") {
-      if (quotaBlocked) {
-        router.push("/payment");
-        return;
-      }
-    }
-
-    if (!script.trim()) return;
-    setLoading(true);
-    setStatus("generating");
-
-    try {
-      setProgress(0);
-      const userId = user?.id || user?._id;
-      const genRes = await axios.post(
-        "http://localhost:5000/api/video/generate-video",
-        {
-          script,
-          style,
-          videoSize,
-          duration: duration && duration !== "none" ? parseInt(duration) : undefined,
-          transitions,
-          animation,
-          userId,
-        }
-      );
-
-      const newVideoId = genRes.data.videoId;
-      setStatus("rendering");
-      await axios.post("http://localhost:5000/api/video/render-video", { videoId: newVideoId });
-      pollVideoStatus(newVideoId);
-
-    } catch (error: any) {
-      console.error(error);
-      // Handle quota exceeded (403 from backend)
-      if (axios.isAxiosError(error) && error.response?.status === 403) {
-        const detail: string = error.response?.data?.detail || "";
-        setQuotaBlocked(true);
-        setLoading(false);
-        setStatus("idle");
-        if (detail.startsWith("quota_exceeded")) {
-          const parts = detail.split("|");
-          const planName = parts[1] || userPlan || "your current";
-          const quota = parts[2] || "";
-          setQuotaMsg(`Your ${planName} plan${quota ? ` (${quota} video${Number(quota)>1?"s":""})` : ""} has been fully used. Please upgrade to generate more videos.`);
-        } else {
-          setQuotaMsg(detail || "Plan limit reached. Please upgrade.");
-        }
-        // Redirect to payment after short delay so user sees the message
-        setTimeout(() => router.push("/payment"), 2500);
-        return;
-      }
-      setStatus("error");
-      setLoading(false);
-    }
-  };
+  }, []);
 
   const pollVideoStatus = (id: string) => {
     pollInterval.current = setInterval(async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/video/${id}`);
-
+        const res = await axios.get(`${API}/api/video/${id}`);
         if (res.data.status === "completed") {
           clearInterval(pollInterval.current!);
           setStatus("completed");
           setProgress(100);
-          setVideoUrl(`http://localhost:5000${res.data.videoUrl}`);
+          setVideoUrl(`${API}${res.data.videoUrl}`);
           setLoading(false);
           fetchHistory();
-
-          // Update local quota tracking
           const newCount = videosGenerated + 1;
           setVideosGenerated(newCount);
-          if (userPlan && newCount >= (PLAN_QUOTA[userPlan] ?? Infinity)) {
-            setQuotaBlocked(true);
-          }
+          if (userPlan && newCount >= (PLAN_QUOTA[userPlan] ?? Infinity)) setQuotaBlocked(true);
         } else if (res.data.status === "failed") {
           clearInterval(pollInterval.current!);
           setStatus("error");
@@ -231,330 +201,847 @@ export default function DashboardPage() {
     }, 2000);
   };
 
-  const isAdmin = user?.role === "admin";
-
-  // What to show in the generate button
-  const getGenerateButtonLabel = () => {
-    if (loading) {
-      return status === "generating" ? "AI segmenting script..." : "Rendering video...";
+  const handleGenerate = async () => {
+    if (user?.role !== "admin" && quotaBlocked) { router.push("/payment"); return; }
+    if (!script.trim()) return;
+    setLoading(true);
+    setStatus("generating");
+    setProgress(0);
+    setVideoUrl(null);
+    try {
+      const userId = user?.id || user?._id;
+      const genRes = await axios.post(`${API}/api/video/generate-video`, {
+        script, style, videoSize,
+        duration: duration && duration !== "none" ? parseInt(duration) : undefined,
+        transitions, animation, background,
+        fps: parseInt(fps),
+        fontsize,
+        userId,
+      });
+      const newVideoId = genRes.data.videoId;
+      setCurrentVideoId(newVideoId);
+      setStatus("rendering");
+      await axios.post(`${API}/api/video/render-video`, { videoId: newVideoId });
+      pollVideoStatus(newVideoId);
+    } catch (error: any) {
+      if (axios.isAxiosError(error) && error.response?.status === 403) {
+        setQuotaBlocked(true);
+        setLoading(false);
+        setStatus("idle");
+        setTimeout(() => router.push("/payment"), 2000);
+        return;
+      }
+      setStatus("error");
+      setLoading(false);
     }
-    if (!isAdmin && quotaBlocked) return "Upgrade Plan";
-    return "Generate Magic";
   };
 
-  return (
-    <div className="min-h-screen bg-black text-white relative flex flex-col">
-      <div className="absolute inset-0 bg-blue-900/10 blur-[120px] pointer-events-none" />
+  // ── Selection helpers ─────────────────────────────────────────────────────────
+  const toggleSelect = (id: string) =>
+    setSelectedVideos(prev => prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]);
 
-      {/* Navbar */}
-      <nav className="border-b border-white/10 bg-black/50 z-10 backdrop-blur-sm">
+  const selectAll = () =>
+    setSelectedVideos(selectedVideos.length === filteredHistory.length ? [] : filteredHistory.map(v => v._id));
+
+  const deleteSelected = async () => {
+    if (!selectedVideos.length) return;
+    await axios.post(`${API}/api/video/delete`, { videoIds: selectedVideos });
+    setSelectedVideos([]);
+    fetchHistory();
+  };
+
+  const deleteAll = async () => {
+    if (!history.length) return;
+    await axios.post(`${API}/api/video/delete`, { videoIds: history.map(v => v._id) });
+    setSelectedVideos([]);
+    fetchHistory();
+  };
+
+  const copyScript = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleLogout = () => {
+    Cookies.remove("token");
+    Cookies.remove("user");
+    router.push("/login");
+  };
+
+  // ── Derived ───────────────────────────────────────────────────────────────────
+  const isAdmin = user?.role === "admin";
+  const quota = userPlan ? PLAN_QUOTA[userPlan] : 0;
+  const quotaRemaining = quota === Infinity ? Infinity : Math.max(0, quota - videosGenerated);
+
+  const filteredHistory = history.filter(v => {
+    const matchSearch = historySearch
+      ? v.script?.toLowerCase().includes(historySearch.toLowerCase())
+      : true;
+    const matchFilter = historyFilter === "all" ? true : v.status === historyFilter;
+    return matchSearch && matchFilter;
+  });
+
+  const completedCount = history.filter(v => v.status === "completed").length;
+  const processingCount = history.filter(v => v.status === "processing").length;
+
+  const stageLabel =
+    status === "generating" ? "Step 1/2 — AI segmenting script..." :
+    status === "rendering"  ? `Step 2/2 — Rendering frames ${progress}%` :
+    status === "completed"  ? "✅ Done!" :
+    status === "error"      ? "❌ Failed" : "";
+
+  const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+    { id: "generate", label: "Generate",  icon: <Wand2 className="w-4 h-4" /> },
+    { id: "history",  label: `History (${history.length})`, icon: <History className="w-4 h-4" /> },
+    { id: "settings", label: "Settings",  icon: <Settings className="w-4 h-4" /> },
+  ];
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+  return (
+    <div className="min-h-screen text-white relative flex flex-col" style={{ background: "radial-gradient(ellipse at 20% 0%, #1a0a3e 0%, #000 60%)" }}>
+      {/* Ambient blobs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-purple-700/20 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 -right-32 w-80 h-80 bg-blue-700/15 rounded-full blur-[100px]" />
+        <div className="absolute bottom-0 left-1/2 w-64 h-64 bg-indigo-800/10 rounded-full blur-[80px]" />
+      </div>
+
+      {/* ── Navbar ── */}
+      <nav className="sticky top-0 z-30 border-b border-white/10 backdrop-blur-xl bg-black/40">
         <div className="container mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center">
-              <Type className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center shadow-lg shadow-purple-500/30">
+              <Type className="w-4 h-4 text-white" />
             </div>
             <span className="font-bold text-xl tracking-tight">TypeMotion</span>
+            <span className="hidden sm:block text-xs text-gray-500 ml-1 mt-0.5">AI</span>
           </div>
-          <div className="flex items-center gap-4 text-sm text-gray-400">
-            {/* Plan badge for regular users */}
+
+          <div className="flex items-center gap-3 text-sm">
             {!isAdmin && userPlan && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 text-xs font-medium">
-                <CreditCard className="w-3 h-3" />
-                {userPlan} Plan · {quotaBlocked ? "Limit reached" : `${videosGenerated} used`}
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-medium">
+                <Zap className="w-3 h-3" />
+                {userPlan} · {quotaBlocked ? "Limit reached" : `${quotaRemaining === Infinity ? "∞" : quotaRemaining} left`}
               </div>
             )}
             {isAdmin && (
               <Button
-                variant="outline"
-                size="sm"
+                variant="outline" size="sm"
                 onClick={() => router.push("/admin")}
-                className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                className="border-purple-500/50 text-purple-400 hover:bg-purple-500/10 text-xs"
               >
-                <Shield className="w-4 h-4 mr-2" />
-                Admin Panel
+                <Shield className="w-3.5 h-3.5 mr-1.5" /> Admin
               </Button>
             )}
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-gray-400 hover:text-white">
-              <LogOut className="w-4 h-4 mr-2" />
-              Log Out
+            <Button
+              variant="ghost" size="sm"
+              onClick={handleLogout}
+              className="text-gray-400 hover:text-white text-xs"
+            >
+              <LogOut className="w-3.5 h-3.5 mr-1.5" /> Log Out
             </Button>
           </div>
         </div>
       </nav>
 
       <main className="flex-1 container mx-auto px-4 py-8 relative z-10 w-full max-w-6xl">
-        <h1 className="text-3xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-blue-400">
-          Create New Video
-        </h1>
-        {!isAdmin && userPlan && quotaBlocked && (
-          <div className="mb-6 flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400 text-sm">
-            <CreditCard className="w-5 h-5 flex-shrink-0" />
-            <span>
-              You have used all <strong>{PLAN_QUOTA[userPlan] === Infinity ? "unlimited" : PLAN_QUOTA[userPlan]}</strong> video generation(s) on your <strong>{userPlan}</strong> plan.{" "}
-              <button onClick={() => router.push("/payment")} className="underline hover:text-amber-300">
-                Upgrade to generate more →
-              </button>
-            </span>
-          </div>
-        )}
-        {!isAdmin && userPlan && !quotaBlocked && (
-          <p className="text-gray-500 text-sm mb-8">
-            Plan: <span className="text-purple-400 font-medium">{userPlan}</span> · {PLAN_QUOTA[userPlan] === Infinity ? "Unlimited" : `${PLAN_QUOTA[userPlan] - videosGenerated} generation(s) remaining`}
-          </p>
-        )}
-        {isAdmin && <div className="mb-8" />}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Left: Controls */}
-          <div className="space-y-6">
-            <Card className="bg-gray-900/50 border-white/10 backdrop-blur-md">
-              <CardContent className="p-6 space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="script" className="text-gray-300">Video Script</Label>
-                  <textarea
-                    id="script"
-                    placeholder="Enter the text you want to animate..."
-                    className="w-full min-h-[200px] bg-black/50 border border-white/10 text-white placeholder:text-gray-600 resize-none rounded-md p-3 text-sm outline-none focus:ring-1 focus:ring-purple-500"
-                    value={script}
-                    onChange={(e) => setScript(e.target.value)}
-                    disabled={loading}
-                  />
-                  <p className="text-xs text-gray-500 text-right">{script.length} characters</p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label className="text-gray-300">Visual Theme</Label>
-                    <Select value={style} onValueChange={setStyle} disabled={loading}>
-                      <SelectTrigger className="bg-black/50 border-white/10 text-white">
-                        <SelectValue placeholder="Select style" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-900 border-white/10 text-white">
-                        <SelectItem value="minimal">Minimal Dark</SelectItem>
-                        <SelectItem value="neon">Neon Glow</SelectItem>
-                        <SelectItem value="cinematic">Cinematic</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-gray-300">Format</Label>
-                    <Select value={videoSize} onValueChange={setVideoSize} disabled={loading}>
-                      <SelectTrigger className="bg-black/50 border-white/10 text-white">
-                        <SelectValue placeholder="Select size" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-900 border-white/10 text-white">
-                        <SelectItem value="9:16">Vertical (9:16)</SelectItem>
-                        <SelectItem value="16:9">Horizontal (16:9)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-gray-300">Target Duration</Label>
-                    <Select value={duration} onValueChange={setDuration} disabled={loading}>
-                      <SelectTrigger className="bg-black/50 border-white/10 text-white">
-                        <SelectValue placeholder="Auto" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-900 border-white/10 text-white">
-                        <SelectItem value="none">Auto (from script)</SelectItem>
-                        <SelectItem value="10">10 Seconds (Fast)</SelectItem>
-                        <SelectItem value="30">30 Seconds (Standard)</SelectItem>
-                        <SelectItem value="60">60 Seconds (Full)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-gray-300">Text Animation</Label>
-                    <Select value={animation} onValueChange={setAnimation} disabled={loading}>
-                      <SelectTrigger className="bg-black/50 border-white/10 text-white">
-                        <SelectValue placeholder="Select animation" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-900 border-white/10 text-white">
-                        <SelectItem value="scale">Scale Up</SelectItem>
-                        <SelectItem value="zoom">Dynamic Zoom</SelectItem>
-                        <SelectItem value="slide">Slide In</SelectItem>
-                        <SelectItem value="bounce">Text Bounce</SelectItem>
-                        <SelectItem value="wave">Sine Wave</SelectItem>
-                        <SelectItem value="fade">Pure Fade</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2 col-span-2">
-                    <Label className="text-gray-300">Scene Transition</Label>
-                    <Select value={transitions} onValueChange={setTransitions} disabled={loading}>
-                      <SelectTrigger className="bg-black/50 border-white/10 text-white">
-                        <SelectValue placeholder="Select transition" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-gray-900 border-white/10 text-white">
-                        <SelectItem value="fade">Hard Cut / Fade</SelectItem>
-                        <SelectItem value="crossfade">Smooth Crossfade</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <Button
-                  onClick={handleGenerate}
-                  disabled={loading || (!script.trim() && !(!isAdmin && quotaBlocked))}
-                  className={`w-full h-12 mt-4 font-bold text-white ${
-                    !isAdmin && quotaBlocked
-                      ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500"
-                      : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500"
-                  }`}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                      {status === "generating" ? "AI segmenting script..." : "Rendering video..."}
-                    </>
-                  ) : (
-                    <>
-                      {!isAdmin && quotaBlocked
-                        ? <CreditCard className="mr-2 h-5 w-5" />
-                        : <PlayCircle className="mr-2 h-5 w-5" />
-                      }
-                      {getGenerateButtonLabel()}
-                    </>
-                  )}
-                </Button>
-
-                {status === "error" && (
-                  <div className="text-red-400 text-sm text-center mt-2 bg-red-900/20 p-2 rounded border border-red-900/50">
-                    An error occurred. Please try again.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right: Preview */}
-          <div className="flex flex-col items-center justify-center bg-gray-900/30 border border-white/10 rounded-xl overflow-hidden min-h-[400px] relative backdrop-blur-sm p-4">
-            {status === "idle" && (
-              <div className="flex flex-col items-center text-gray-500">
-                <div className="w-16 h-16 rounded-full border-2 border-dashed border-gray-600 flex items-center justify-center mb-4">
-                  <PlayCircle className="w-8 h-8 opacity-50" />
-                </div>
-                <p>Your generated video will appear here</p>
-              </div>
-            )}
-
-            {(status === "generating" || status === "rendering") && (
-              <div className="flex flex-col items-center w-full max-w-sm">
-                <div className="w-16 h-16 rounded-full border-2 border-t-purple-500 border-r-purple-500 border-b-blue-500 border-l-transparent animate-spin mb-4" />
-                <p className="font-medium animate-pulse text-purple-400 mb-2">
-                  {status === "generating" ? "AI is analyzing your script..." : `Rendering: ${progress}%`}
-                </p>
-                {status === "rendering" && (
-                  <>
-                    <div className="w-full bg-gray-800 rounded-full h-2.5 mb-2 overflow-hidden">
-                      <div className="bg-gradient-to-r from-purple-500 to-blue-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
-                    </div>
-                    <p className="text-sm text-gray-500 mt-2 text-center">
-                      This usually takes 1-3 minutes depending on script length.
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-
-            {status === "completed" && videoUrl && (
-              <div className="w-full h-full flex flex-col items-center justify-center space-y-4">
-                <video
-                  src={videoUrl}
-                  controls
-                  className={`w-full max-h-[500px] rounded-lg shadow-2xl ${videoSize === "9:16" ? "aspect-[9/16] max-w-[300px]" : "aspect-video"}`}
-                />
-                <Button asChild className="bg-white text-black hover:bg-gray-200 mt-4">
-                  <a href={videoUrl} target="_blank" download>
-                    <Download className="w-4 h-4 mr-2" /> Download MP4
-                  </a>
-                </Button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Video History */}
-        <div className="mt-16 border-t border-white/10 pt-12">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
-            <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-              <PlayCircle className="w-6 h-6 text-purple-400" />
-              Video Generation History
-            </h2>
-            <div className="flex items-center gap-4 mt-4 md:mt-0">
-              {history.length > 0 && (
-                <>
-                  <Button variant="outline" size="sm" onClick={selectAll} className="border-white/20 hover:bg-white/10 text-white bg-transparent">
-                    {selectedVideos.length === history.length ? <CheckSquare className="w-4 h-4 mr-2" /> : <Square className="w-4 h-4 mr-2" />}
-                    {selectedVideos.length === history.length ? "Deselect All" : "Select All"}
-                  </Button>
-                  <Button variant="destructive" size="sm" onClick={deleteSelected} disabled={selectedVideos.length === 0} className="bg-red-900/50 hover:bg-red-600 text-white border-none">
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete Selected ({selectedVideos.length})
-                  </Button>
-                  <Button variant="destructive" size="sm" onClick={deleteAll} className="bg-red-900/50 hover:bg-red-600 text-white border-none">
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete All
-                  </Button>
-                </>
-              )}
+        {/* ── Hero strip ── */}
+        <div className="mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-4">
+            <div>
+              <p className="text-purple-400 text-sm font-medium mb-1 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" /> AI Video Studio
+              </p>
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-purple-200 to-blue-300">
+                Create Stunning<br className="sm:hidden" /> Typography Videos
+              </h1>
             </div>
-          </div>
-          {history.length === 0 ? (
-            <div className="text-center text-gray-500 py-12 flex flex-col items-center">
-              <FileImage className="w-12 h-12 mb-4 opacity-30" />
-              <p>No videos generated yet. Create your first one above!</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {history.map((video) => (
-                <div key={video._id} className={`group bg-gray-900/50 border rounded-xl overflow-hidden transition-colors flex flex-col relative ${selectedVideos.includes(video._id) ? "border-purple-500" : "border-white/10 hover:border-purple-500/50"}`}>
-                  <div className="absolute top-2 left-2 z-20">
-                    <button onClick={() => toggleSelect(video._id)} className="p-1 rounded bg-black/50 hover:bg-black/80 text-white">
-                      {selectedVideos.includes(video._id) ? <CheckSquare className="w-5 h-5 text-purple-400" /> : <Square className="w-5 h-5 opacity-50 hover:opacity-100" />}
-                    </button>
-                  </div>
-                  {video.status === "completed" && video.videoUrl ? (
-                    <video
-                      src={`http://localhost:5000${video.videoUrl}`}
-                      className={`w-full bg-black ${video.videoSize === "9:16" ? "aspect-[9/16] object-contain" : "aspect-video object-cover"}`}
-                      muted
-                      controls
-                    />
-                  ) : (
-                    <div className={`w-full bg-black/50 flex flex-col items-center justify-center ${video.videoSize === "9:16" ? "aspect-[9/16]" : "aspect-video"}`}>
-                      {video.status === "failed" ? (
-                        <div className="text-red-400 text-sm">Render Failed</div>
-                      ) : (
-                        <div className="flex flex-col items-center text-purple-400">
-                          <div className="w-8 h-8 rounded-full border-2 border-t-purple-500 border-r-purple-500 border-b-blue-500 border-l-transparent animate-spin mb-2" />
-                          <span className="text-sm">Processing {video.progress}%</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <div className="p-4 flex flex-col flex-1">
-                    <p className="text-sm text-gray-300 line-clamp-2 mb-2 italic">&quot;{video.script}&quot;</p>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      <span className="text-xs bg-white/10 px-2 py-1 rounded text-gray-400">{video.style}</span>
-                      <span className="text-xs bg-white/10 px-2 py-1 rounded text-gray-400">{video.videoSize}</span>
-                    </div>
-                    {video.status === "completed" && video.videoUrl && (
-                      <Button asChild variant="outline" size="sm" className="w-full mt-auto bg-transparent border-white/20 hover:bg-white/10 text-white">
-                        <a href={`http://localhost:5000${video.videoUrl}`} target="_blank" download>
-                          <Download className="w-3 h-3 mr-2" /> Download
-                        </a>
-                      </Button>
-                    )}
-                  </div>
+            {/* Quick stats */}
+            <div className="flex gap-3">
+              {[
+                { label: "Total",      value: history.length,     icon: <Film className="w-3.5 h-3.5" /> },
+                { label: "Completed",  value: completedCount,     icon: <Check className="w-3.5 h-3.5" /> },
+                { label: "Processing", value: processingCount,    icon: <Loader2 className="w-3.5 h-3.5 animate-spin" /> },
+              ].map(s => (
+                <div key={s.label} className="flex flex-col items-center px-4 py-2 rounded-xl bg-white/5 border border-white/10 min-w-[70px]">
+                  <span className="text-purple-400 mb-0.5">{s.icon}</span>
+                  <span className="text-lg font-bold">{s.value}</span>
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wide">{s.label}</span>
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Plan banner */}
+          {!isAdmin && userPlan && quotaBlocked && (
+            <div className="flex items-center gap-3 p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400 text-sm mb-4">
+              <CreditCard className="w-4 h-4 flex-shrink-0" />
+              <span>
+                You've used all <strong>{PLAN_QUOTA[userPlan] === Infinity ? "∞" : PLAN_QUOTA[userPlan]}</strong> video(s) on your <strong>{userPlan}</strong> plan.{" "}
+                <button onClick={() => router.push("/payment")} className="underline hover:text-amber-300 font-medium">
+                  Upgrade now →
+                </button>
+              </span>
+            </div>
           )}
         </div>
+
+        {/* ── Tabs ── */}
+        <div className="flex gap-1 p-1 bg-white/5 border border-white/10 rounded-xl w-fit mb-8">
+          {TABS.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                activeTab === tab.id
+                  ? "bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/20"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ─────────────────── GENERATE TAB ─────────────────── */}
+        {activeTab === "generate" && (
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6">
+
+            {/* LEFT: Controls */}
+            <div className="space-y-4">
+
+              {/* Script Presets */}
+              <Card className="bg-white/[0.03] border-white/10 backdrop-blur-sm">
+                <CardContent className="p-5">
+                  <Label className="text-gray-300 text-sm font-medium flex items-center gap-2 mb-3">
+                    <Star className="w-3.5 h-3.5 text-yellow-400" /> Quick Presets
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {SCRIPT_PRESETS.map(preset => (
+                      <button
+                        key={preset.label}
+                        disabled={loading}
+                        onClick={() => setScript(preset.value)}
+                        className="text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-300 hover:border-purple-500/50 hover:text-white hover:bg-purple-500/10 transition-all disabled:opacity-40"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Script Input */}
+              <Card className="bg-white/[0.03] border-white/10 backdrop-blur-sm">
+                <CardContent className="p-5 space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-gray-300 text-sm font-medium flex items-center gap-2">
+                        <PenLine className="w-3.5 h-3.5 text-purple-400" /> Your Script
+                      </Label>
+                      <span className={`text-xs ${script.length > 500 ? "text-amber-400" : "text-gray-500"}`}>
+                        {script.length} chars
+                      </span>
+                    </div>
+                    <textarea
+                      placeholder="Type or paste your script here... or pick a preset above."
+                      className="w-full min-h-[160px] bg-black/40 border border-white/10 text-white placeholder:text-gray-600 resize-none rounded-lg p-3.5 text-sm outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500/50 transition-all leading-relaxed"
+                      value={script}
+                      onChange={e => setScript(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+
+                  {/* Core options: 2 cols */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Style */}
+                    <div className="space-y-1.5">
+                      <Label className="text-gray-400 text-xs">Visual Theme</Label>
+                      <div className="flex flex-col gap-1">
+                        {STYLES.map(s => (
+                          <button
+                            key={s.value}
+                            disabled={loading}
+                            onClick={() => setStyle(s.value)}
+                            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs border transition-all ${
+                              style === s.value
+                                ? "border-purple-500 bg-purple-500/15 text-white"
+                                : "border-white/10 bg-white/5 text-gray-400 hover:border-white/20"
+                            }`}
+                          >
+                            <span>{s.icon}</span>
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Format + Duration */}
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-gray-400 text-xs">Format</Label>
+                        <Select value={videoSize} onValueChange={setVideoSize} disabled={loading}>
+                          <SelectTrigger className="bg-black/40 border-white/10 text-white text-xs h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-gray-900 border-white/10 text-white">
+                            <SelectItem value="9:16">📱 Vertical (9:16)</SelectItem>
+                            <SelectItem value="16:9">🖥️ Landscape (16:9)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-gray-400 text-xs">Duration</Label>
+                        <Select value={duration} onValueChange={setDuration} disabled={loading}>
+                          <SelectTrigger className="bg-black/40 border-white/10 text-white text-xs h-9">
+                            <SelectValue placeholder="Auto" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-gray-900 border-white/10 text-white">
+                            <SelectItem value="none">⚡ Auto (from script)</SelectItem>
+                            <SelectItem value="10">⏱️ 10s — Fast</SelectItem>
+                            <SelectItem value="30">📽️ 30s — Standard</SelectItem>
+                            <SelectItem value="60">🎬 60s — Full</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-gray-400 text-xs">Transition</Label>
+                        <Select value={transitions} onValueChange={setTransitions} disabled={loading}>
+                          <SelectTrigger className="bg-black/40 border-white/10 text-white text-xs h-9">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-gray-900 border-white/10 text-white">
+                            {TRANSITIONS.map(t => (
+                              <SelectItem key={t.value} value={t.value}>{t.label} — {t.desc}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Animation picker */}
+                  <div className="space-y-2">
+                    <Label className="text-gray-400 text-xs flex items-center gap-1.5">
+                      <Zap className="w-3 h-3 text-yellow-400" /> Text Animation
+                    </Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                      {ANIMATIONS.map(a => (
+                        <button
+                          key={a.value}
+                          disabled={loading}
+                          onClick={() => setAnimation(a.value)}
+                          title={a.desc}
+                          className={`flex flex-col items-center px-2 py-2 rounded-lg border text-[10px] transition-all ${
+                            animation === a.value
+                              ? "border-purple-500 bg-purple-500/15 text-white"
+                              : "border-white/10 bg-white/5 text-gray-500 hover:border-white/20 hover:text-gray-300"
+                          }`}
+                        >
+                          <span className="font-semibold text-xs mb-0.5">{a.label}</span>
+                          <span className="opacity-70 text-center leading-tight">{a.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ── Advanced toggleable section ── */}
+                  <button
+                    onClick={() => setShowAdvanced(v => !v)}
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-300 transition-colors w-full pt-2 border-t border-white/5"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    Advanced Settings
+                    {showAdvanced ? <ChevronUp className="w-3.5 h-3.5 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto" />}
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="space-y-4 pt-2 border-t border-white/5 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {/* Background */}
+                      <div className="space-y-2">
+                        <Label className="text-gray-400 text-xs">Background Style</Label>
+                        <div className="grid grid-cols-4 gap-2">
+                          {BACKGROUNDS.map(bg => (
+                            <button
+                              key={bg.value}
+                              disabled={loading}
+                              onClick={() => setBackground(bg.value)}
+                              className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all ${
+                                background === bg.value
+                                  ? "border-purple-500 bg-purple-500/10"
+                                  : "border-white/10 hover:border-white/20"
+                              }`}
+                            >
+                              <div className={`w-full h-10 rounded-md ${bg.preview}`} />
+                              <span className="text-[10px] text-gray-400">{bg.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* FPS */}
+                      <div className="space-y-1.5">
+                        <Label className="text-gray-400 text-xs flex items-center gap-1.5">
+                          <Film className="w-3 h-3" /> Frame Rate (FPS)
+                        </Label>
+                        <div className="flex gap-2">
+                          {["24", "30", "60"].map(f => (
+                            <button
+                              key={f}
+                              disabled={loading}
+                              onClick={() => setFps(f)}
+                              className={`flex-1 py-2 rounded-lg border text-xs font-medium transition-all ${
+                                fps === f
+                                  ? "border-purple-500 bg-purple-500/15 text-white"
+                                  : "border-white/10 bg-white/5 text-gray-400 hover:border-white/20"
+                              }`}
+                            >
+                              {f} FPS
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Font size slider */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-gray-400 text-xs">Font Size</Label>
+                          <span className="text-xs text-purple-400 font-mono font-bold">{fontsize}px</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={40} max={140} step={10}
+                          value={fontsize}
+                          disabled={loading}
+                          onChange={e => setFontsize(Number(e.target.value))}
+                          className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                          style={{
+                            background: `linear-gradient(to right, #9333ea ${((fontsize - 40) / 100) * 100}%, #374151 ${((fontsize - 40) / 100) * 100}%)`
+                          }}
+                        />
+                        <div className="flex justify-between text-[10px] text-gray-600">
+                          <span>Small (40px)</span><span>Large (140px)</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Generate button */}
+                  <button
+                    onClick={handleGenerate}
+                    disabled={loading || (!script.trim() && !(user?.role !== "admin" && quotaBlocked))}
+                    className={`w-full h-12 rounded-xl font-bold text-white text-sm flex items-center justify-center gap-2 mt-2 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                      !isAdmin && quotaBlocked
+                        ? "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-orange-500/20"
+                        : "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 shadow-purple-500/30 hover:shadow-purple-500/50 hover:scale-[1.01]"
+                    }`}
+                  >
+                    {loading ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> {status === "generating" ? "Segmenting script…" : `Rendering ${progress}%`}</>
+                    ) : !isAdmin && quotaBlocked ? (
+                      <><CreditCard className="w-4 h-4" /> Upgrade Plan</>
+                    ) : (
+                      <><Wand2 className="w-4 h-4" /> Generate Video Magic</>
+                    )}
+                  </button>
+
+                  {status === "error" && (
+                    <p className="text-red-400 text-xs text-center bg-red-900/20 py-2 rounded-lg border border-red-800/40">
+                      Something went wrong. Please try again.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* RIGHT: Preview panel */}
+            <div className="flex flex-col">
+              <Card className="bg-white/[0.03] border-white/10 backdrop-blur-sm flex-1">
+                <CardContent className="p-5 flex flex-col items-center justify-center min-h-[520px] h-full">
+                  {status === "idle" && (
+                    <div className="flex flex-col items-center text-center space-y-4">
+                      <div className="relative">
+                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-900/60 to-blue-900/60 border border-white/10 flex items-center justify-center">
+                          <Video className="w-9 h-9 text-purple-400 opacity-60" />
+                        </div>
+                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full animate-ping opacity-30" />
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-sm font-medium">Preview will appear here</p>
+                        <p className="text-gray-600 text-xs mt-1">Configure your settings and click Generate</p>
+                      </div>
+                      {/* Mini feature list */}
+                      <div className="w-full mt-4 space-y-2">
+                        {["AI script segmentation", "Smooth text animations", "MP4 download ready"].map(f => (
+                          <div key={f} className="flex items-center gap-2 text-xs text-gray-600">
+                            <Check className="w-3 h-3 text-purple-500" /> {f}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(status === "generating" || status === "rendering") && (
+                    <div className="flex flex-col items-center w-full space-y-5">
+                      {/* Animated ring */}
+                      <div className="relative w-20 h-20">
+                        <div className="absolute inset-0 rounded-full border-4 border-white/5" />
+                        <div className="absolute inset-0 rounded-full border-4 border-t-purple-500 border-r-blue-500 border-b-transparent border-l-transparent animate-spin" />
+                        <div className="absolute inset-2 rounded-full border-2 border-t-transparent border-r-transparent border-b-purple-400 border-l-blue-400 animate-spin" style={{ animationDirection: "reverse", animationDuration: "1.5s" }} />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-sm font-bold text-purple-300">{progress}%</span>
+                        </div>
+                      </div>
+
+                      <div className="text-center">
+                        <p className="text-sm font-semibold text-white mb-1 animate-pulse">{stageLabel}</p>
+                        <p className="text-xs text-gray-500">
+                          {status === "generating"
+                            ? "Breaking your script into animated scenes…"
+                            : "Rendering each frame with MoviePy / Pillow…"
+                          }
+                        </p>
+                      </div>
+
+                      {/* Progress bar */}
+                      <div className="w-full space-y-1.5">
+                        <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full transition-all duration-700"
+                            style={{ width: `${status === "generating" ? 15 : progress}%` }}
+                          />
+                        </div>
+                        {/* Stage dots */}
+                        <div className="flex items-center justify-between text-[10px] text-gray-600">
+                          <span className="text-purple-400 font-medium">Script → Scenes</span>
+                          <span className={status === "rendering" ? "text-blue-400 font-medium" : ""}>Frames → MP4</span>
+                          <span className={status === "completed" ? "text-green-400 font-medium" : ""}>Done</span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-gray-600 text-center">
+                        Estimated time: 1–3 min depending on script length
+                      </p>
+                    </div>
+                  )}
+
+                  {status === "completed" && videoUrl && (
+                    <div className="w-full flex flex-col items-center space-y-4">
+                      <div className="flex items-center gap-2 text-green-400 text-sm font-medium">
+                        <Check className="w-4 h-4" /> Video ready!
+                      </div>
+                      <video
+                        src={videoUrl}
+                        controls
+                        autoPlay
+                        className={`w-full rounded-xl shadow-2xl shadow-purple-900/40 ${
+                          videoSize === "9:16" ? "aspect-[9/16] max-w-[240px]" : "aspect-video"
+                        }`}
+                      />
+                      <div className="flex gap-2 w-full">
+                        <a
+                          href={videoUrl} download
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white text-black text-sm font-semibold rounded-xl hover:bg-gray-100 transition-colors"
+                        >
+                          <Download className="w-4 h-4" /> Download MP4
+                        </a>
+                        <button
+                          onClick={() => { setStatus("idle"); setVideoUrl(null); setScript(""); }}
+                          className="px-4 py-2.5 bg-white/5 border border-white/10 text-gray-300 text-sm rounded-xl hover:bg-white/10 transition-colors"
+                        >
+                          New
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* ─────────────────── HISTORY TAB ─────────────────── */}
+        {activeTab === "history" && (
+          <div className="space-y-6">
+            {/* Filters bar */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Search by script content…"
+                  value={historySearch}
+                  onChange={e => setHistorySearch(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-gray-600 outline-none focus:ring-1 focus:ring-purple-500"
+                />
+                {historySearch && (
+                  <button onClick={() => setHistorySearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              {/* Status filter pills */}
+              <div className="flex gap-1.5">
+                {(["all", "completed", "processing", "failed"] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setHistoryFilter(f)}
+                    className={`px-3 py-2 rounded-xl text-xs font-medium capitalize transition-all border ${
+                      historyFilter === f
+                        ? "border-purple-500 bg-purple-500/15 text-white"
+                        : "border-white/10 bg-white/5 text-gray-500 hover:border-white/20"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Bulk actions */}
+            {filteredHistory.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={selectAll} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-colors">
+                  {selectedVideos.length === filteredHistory.length ? <CheckSquare className="w-3.5 h-3.5" /> : <Square className="w-3.5 h-3.5" />}
+                  {selectedVideos.length === filteredHistory.length ? "Deselect All" : "Select All"}
+                </button>
+                <button
+                  onClick={deleteSelected}
+                  disabled={selectedVideos.length === 0}
+                  className="flex items-center gap-1.5 text-xs text-red-400 hover:text-white px-3 py-1.5 rounded-lg border border-red-900/40 hover:bg-red-900/30 transition-colors disabled:opacity-30"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete Selected ({selectedVideos.length})
+                </button>
+                <button
+                  onClick={deleteAll}
+                  className="flex items-center gap-1.5 text-xs text-red-500 hover:text-white px-3 py-1.5 rounded-lg border border-red-900/40 hover:bg-red-900/30 transition-colors"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete All
+                </button>
+                <button onClick={fetchHistory} className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:bg-white/5 transition-colors ml-auto">
+                  <RefreshCw className="w-3.5 h-3.5" /> Refresh
+                </button>
+              </div>
+            )}
+
+            {/* Grid */}
+            {filteredHistory.length === 0 ? (
+              <div className="text-center py-20 flex flex-col items-center text-gray-600">
+                <FileImage className="w-12 h-12 mb-4 opacity-20" />
+                <p className="text-sm">{historySearch ? "No videos match your search." : "No videos yet. Create your first one!"}</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredHistory.map(video => {
+                  const isSelected = selectedVideos.includes(video._id);
+                  const isCompleted = video.status === "completed" && video.videoUrl;
+                  const isFailed = video.status === "failed";
+                  const isProcessing = video.status === "processing";
+
+                  return (
+                    <div
+                      key={video._id}
+                      className={`group rounded-xl border overflow-hidden flex flex-col transition-all duration-200 cursor-pointer ${
+                        isSelected
+                          ? "border-purple-500 bg-purple-500/5 ring-1 ring-purple-500/30"
+                          : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
+                      }`}
+                    >
+                      {/* Thumbnail / video */}
+                      <div className="relative">
+                        {/* Checkbox overlay */}
+                        <div className="absolute top-2 left-2 z-10">
+                          <button
+                            onClick={() => toggleSelect(video._id)}
+                            className="p-1 rounded-md bg-black/60 backdrop-blur-sm hover:bg-black/80 text-white"
+                          >
+                            {isSelected
+                              ? <CheckSquare className="w-4 h-4 text-purple-400" />
+                              : <Square className="w-4 h-4 opacity-50 group-hover:opacity-100 transition-opacity" />
+                            }
+                          </button>
+                        </div>
+
+                        {/* Status badge */}
+                        <div className="absolute top-2 right-2 z-10">
+                          <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                            isCompleted  ? "bg-green-500/20 text-green-400 border border-green-500/30" :
+                            isFailed     ? "bg-red-500/20 text-red-400 border border-red-500/30" :
+                            isProcessing ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" :
+                            "bg-gray-500/20 text-gray-400 border border-gray-500/30"
+                          }`}>
+                            {isCompleted ? "✓ Done" : isFailed ? "✕ Failed" : `${video.progress || 0}%`}
+                          </span>
+                        </div>
+
+                        {isCompleted ? (
+                          <video
+                            src={`${API}${video.videoUrl}`}
+                            className={`w-full bg-black ${video.videoSize === "9:16" ? "aspect-[9/16] object-contain" : "aspect-video object-cover"}`}
+                            muted
+                            controls
+                          />
+                        ) : (
+                          <div className={`w-full bg-black/60 flex flex-col items-center justify-center ${video.videoSize === "9:16" ? "aspect-[9/16]" : "aspect-video"}`}>
+                            {isFailed ? (
+                              <div className="text-red-400 text-xs text-center px-3">
+                                <X className="w-6 h-6 mx-auto mb-1 opacity-60" />
+                                Render failed
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2 text-blue-400">
+                                <Loader2 className="w-6 h-6 animate-spin opacity-60" />
+                                <span className="text-xs">Processing {video.progress || 0}%</span>
+                                <div className="w-20 h-1 bg-white/10 rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-blue-500 rounded-full transition-all"
+                                    style={{ width: `${video.progress || 0}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Card body */}
+                      <div className="p-3 flex flex-col flex-1 gap-2">
+                        <p className="text-xs text-gray-400 line-clamp-2 leading-relaxed italic">
+                          &ldquo;{video.script}&rdquo;
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 mt-0.5">
+                          <span className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-gray-500 capitalize">{video.style}</span>
+                          <span className="text-[10px] bg-white/5 border border-white/10 px-2 py-0.5 rounded-full text-gray-500">{video.videoSize}</span>
+                          {video.animation && (
+                            <span className="text-[10px] bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-full text-purple-400 capitalize">{video.animation}</span>
+                          )}
+                        </div>
+                        {video.createdAt && (
+                          <p className="text-[10px] text-gray-600 flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {new Date(video.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                          </p>
+                        )}
+                        {/* Actions */}
+                        <div className="flex gap-1.5 mt-auto pt-1">
+                          <button
+                            onClick={() => copyScript(video.script, video._id)}
+                            title="Copy script"
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] rounded-lg border border-white/10 bg-white/5 text-gray-400 hover:text-white hover:border-white/20 transition-colors"
+                          >
+                            {copiedId === video._id
+                              ? <><Check className="w-3 h-3 text-green-400" /> Copied</>
+                              : <><Copy className="w-3 h-3" /> Copy</>
+                            }
+                          </button>
+                          {isCompleted && (
+                            <a
+                              href={`${API}${video.videoUrl}`} download
+                              className="flex-1 flex items-center justify-center gap-1 py-1.5 text-[10px] rounded-lg border border-purple-500/30 bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 transition-colors"
+                            >
+                              <Download className="w-3 h-3" /> Download
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─────────────────── SETTINGS TAB ─────────────────── */}
+        {activeTab === "settings" && (
+          <div className="max-w-xl space-y-4">
+            <Card className="bg-white/[0.03] border-white/10 backdrop-blur-sm">
+              <CardContent className="p-5 space-y-5">
+                <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <Settings className="w-4 h-4 text-purple-400" /> Account & Plan
+                </h2>
+
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between py-2 border-b border-white/5">
+                    <span className="text-gray-500">Email</span>
+                    <span className="text-white font-medium">{user?.email || "—"}</span>
+                  </div>
+                  <div className="flex justify-between py-2 border-b border-white/5">
+                    <span className="text-gray-500">Role</span>
+                    <span className={`font-medium capitalize ${isAdmin ? "text-purple-400" : "text-white"}`}>{user?.role || "user"}</span>
+                  </div>
+                  {!isAdmin && (
+                    <>
+                      <div className="flex justify-between py-2 border-b border-white/5">
+                        <span className="text-gray-500">Plan</span>
+                        <span className="text-purple-300 font-medium">{userPlan || "None"}</span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-white/5">
+                        <span className="text-gray-500">Videos Used</span>
+                        <span className="text-white font-medium">{videosGenerated} / {quota === Infinity ? "∞" : quota}</span>
+                      </div>
+                      <div className="flex justify-between py-2">
+                        <span className="text-gray-500">Quota Remaining</span>
+                        <span className={`font-medium ${quotaBlocked ? "text-red-400" : "text-green-400"}`}>
+                          {quotaRemaining === Infinity ? "Unlimited" : quotaBlocked ? "Exhausted" : quotaRemaining}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {!isAdmin && (
+                  <Button
+                    onClick={() => router.push("/payment")}
+                    className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white text-sm"
+                  >
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    {quotaBlocked ? "Upgrade Plan" : "Manage Plan"}
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/[0.03] border-white/10 backdrop-blur-sm">
+              <CardContent className="p-5 space-y-4">
+                <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-blue-400" /> Your Stats
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: "Total Videos",  value: history.length,   color: "text-white" },
+                    { label: "Completed",      value: completedCount,   color: "text-green-400" },
+                    { label: "Processing",     value: processingCount,  color: "text-blue-400" },
+                    { label: "Failed",         value: history.filter(v => v.status === "failed").length, color: "text-red-400" },
+                  ].map(s => (
+                    <div key={s.label} className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                      <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white/[0.03] border-white/10 backdrop-blur-sm">
+              <CardContent className="p-5">
+                <h2 className="text-sm font-semibold text-white flex items-center gap-2 mb-4">
+                  <LogOut className="w-4 h-4 text-red-400" /> Session
+                </h2>
+                <Button
+                  onClick={handleLogout}
+                  variant="outline"
+                  className="w-full border-red-900/50 text-red-400 hover:bg-red-900/20 hover:border-red-700 text-sm bg-transparent"
+                >
+                  <LogOut className="w-4 h-4 mr-2" /> Sign Out
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
       </main>
     </div>
   );
